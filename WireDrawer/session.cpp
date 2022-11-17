@@ -150,17 +150,17 @@ void Session::setColors(){
     colors__.push_back(QColorConstants::Svg::yellowgreen);
 }
 
-int Session::getPinLen(PinConnection* conn_){
+int Session::getPinLen(std::shared_ptr<PinConnection> conn_){
     return (conn_->getConnId()+2)*pinWidh__;
 }
-QPoint Session::getPinPoint(Pin* pin_){
+QPoint Session::getPinPoint(std::shared_ptr<Pin> pin_){
     return QPoint(getPinX(pin_),getPinY(pin_));
 }
-QPoint Session::getPinMiddlePoint(Pin* pin_){
+QPoint Session::getPinMiddlePoint(std::shared_ptr<Pin>  pin_){
     return QPoint(getPinX(pin_)+pinWidh__/2,getPinY(pin_)+pinHeight__/2);
 }
 int Session::getPinsUsed(){return getPinsConnected().size();}
-int Session::getBusX(PinConnection* conn_, bool isLeft_){return isLeft_?getPinLen(conn_):(getXRightBorder()-getPinLen(conn_));}
+int Session::getBusX(std::shared_ptr<PinConnection> conn_, bool isLeft_){return isLeft_?getPinLen(conn_):(getXRightBorder()-getPinLen(conn_));}
 int Session::getXRightBorder(){return 2*getXCenter()+pinWidh__;  }
 int Session::getYMax(){
     bool isLeft=absLeftPins__.size()>absRightPins__.size();
@@ -168,7 +168,7 @@ int Session::getYMax(){
 }
 int Session::getXMax(){    return getXRightBorder()+pinWidh__;}
 int Session::getXCenter(){return (connections__.size()+1)*pinWidh__;}
-int Session::getAbsPinLevel(Pin *pin_) const {
+int Session::getAbsPinLevel(std::shared_ptr<Pin> pin_) const {
     auto pinCable=pinCablesMap__.find(pin_)->second;
     auto cables=pinCable->isLeft()? leftCables__:rightCables__;
     int pinLevel=pin_->getNumInCable();
@@ -178,7 +178,7 @@ int Session::getAbsPinLevel(Pin *pin_) const {
     return pinLevel;
 }
 
-bool Session::hasOccupiedWithLessId(int level, PinConnection* conn_ ){
+bool Session::hasOccupiedWithLessId(int level, std::shared_ptr<PinConnection> conn_ ){
     for(int side=0;side<2;++side){
         bool isLeft=side;
         auto &occupied=isLeft?occupiedLevelsLeftPins__:occupiedLevelsRightPins__;
@@ -188,8 +188,8 @@ bool Session::hasOccupiedWithLessId(int level, PinConnection* conn_ ){
     }
     return false;
 }
-int Session::getPinY(Pin *pin_){
-    Cable *pinCable=getPinCablesMap()[pin_];
+int Session::getPinY(std::shared_ptr<Pin> pin_){
+    auto pinCable=getPinCablesMap()[pin_];
     int height=0;
     auto &oneSideCables=getCables(pinCable->isLeft());
     for(auto& cableIt:oneSideCables)
@@ -198,27 +198,31 @@ int Session::getPinY(Pin *pin_){
     height+=(pin_->getNumInCable()*pinHeight__);
     return height;
 }
-int Session::getPinX(Pin* pin_){
-    return getPinCablesMap()[pin_]->isLeft()?0:2*(connections__.size()+1)*pinWidh__;
+int Session::getPinX(std::shared_ptr<Pin> pin_){
+    return pinCablesMap__[pin_]->isLeft()?0:2*(connections__.size()+1)*pinWidh__;
 }
 
 void Session::deinit(){
-    for(auto connIt=connections__.begin();connIt!=connections__.end(); )
-        delete connIt++->second;
-    connections__.clear();
-    for(auto cable:cables__)
-        delete cable;
     cables__.clear();
-
+    connections__.clear();
+    occupiedLevelsLeftPins__.clear();
+    occupiedLevelsRightPins__.clear();
+    pinsConnected__.clear();
+    pinCablesMap__.clear();
+    leftCables__.clear();
+    rightCables__.clear();
+    absLeftPins__.clear();
+    absRightPins__.clear();
+    pins__.clear();
 }
 bool Session::init(int totalCables_, int oneCablePinsMax_, double connectedPinsPercent_){
     for(int cableNum=0;cableNum<totalCables_;++cableNum){
         bool isLeft=cableNum%2;
-        Cable* cable=new Cable(*this,isLeft);
+        auto cable=std::make_shared<Cable>(cableNum, cableNum/2 +cableNum%2, isLeft);
         cables__.insert(cable);
         int pinsCount=Randomizer::getRandom(1,oneCablePinsMax_);
         for(int pinNum=0;pinNum<pinsCount;++pinNum)
-            cable->addPin();
+            Cable::addNewPin(*this,cable);
 
     }
 
@@ -227,37 +231,26 @@ bool Session::init(int totalCables_, int oneCablePinsMax_, double connectedPinsP
     while((pinsRest=maxPinsConnected-getPinsUsed())>=2){
         if(pinsRest<2)
             return true;
+
         int pinsCountMax=Randomizer::getRandom(2,pinsRest);
-        auto conn=PinConnection::genNextConnection(*this, pinsCountMax);
+        auto conn=std::make_shared<PinConnection>(*this,connections__.size());
         connections__.insert(std::make_pair(conn->getConnId(),conn));
+        PinConnection::genNextConnection(*this,conn, pinsCountMax);
     }
 
     return true;
 }
 
-std::map<int /*pinLevel*/,PinConnection*>& Session::getOccpuiedLevels(bool isLeft_){
-    return isLeft_?occupiedLevelsLeftPins__:occupiedLevelsRightPins__;
-}
-std::map<int /*connId*/,PinConnection*>& Session::getConnections(){
-    return connections__;
-}
-std::map<Pin*, PinConnection*>& Session::getPinsConnected(){
-    return pinsConnected__;
-}
-std::map<Pin*,Cable*>& Session::getPinCablesMap(){
-    return pinCablesMap__;
-}
-std::map<int/*level*/, Cable*>& Session::getCables(bool isLeftSide_){
-    return isLeftSide_?leftCables__:rightCables__;
-}
-std::map<int/*absPinLevel*/,Pin*>& Session::getLeveledPins(bool isLeft_){
-    return isLeft_?absLeftPins__:absRightPins__;
-}
+
+
 
 std::ostream& operator <<(std::ostream &o_, const Session& session_){
 
-    for(auto conn:session_.connections__)
-        std::cout<<*conn.second<<"\n highest="<<*conn.second->getHighest()<<"\n lowest="<<*conn.second->getLowest()<<"\n\n";
+    for(auto conn:session_.connections__){
+        auto highest=conn.second->getHighest();
+        auto lowest=conn.second->getLowest();
+        std::cout<<*(conn.second)<<"\n highest="<<conn.second->getHighest()<<"\n lowest="<<conn.second->getLowest()<<"\n\n";
+    }
 
     std::cout<<"Cables:\n";
     for(int side=0;side<2;++side)

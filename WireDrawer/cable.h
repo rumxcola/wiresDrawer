@@ -3,32 +3,32 @@
 #include <set>
 #include "pin.h"
 class Cable;
-class CableStore:public PinsStore{
+class CableStore{//:{public PinsStore{
 public:
     virtual ~CableStore(){}
-    virtual std::map<Pin*,Cable*>& getPinCablesMap()=0;
-    virtual std::map<int/*level*/, Cable*>& getCables(bool isLeftSide_)=0;
-    virtual std::map<int/*absPinLevel*/,Pin*>& getLeveledPins(bool isLeft)=0;
-    virtual int getAbsPinLevel(Pin *pin_) const =0;
+    virtual std::map<int /*absPinLevel*/,std::shared_ptr<Pin>> const & getPins()=0;    
+};
+class MutableCableStore:public CableStore{
+public:
+    virtual void createAssociation(std::shared_ptr<Pin>,std::shared_ptr<Cable>)=0;
 };
 
 class Cable{
 private:    
-    CableStore &cablesStore__;
-    std::map<int/*numInCable__*/,Pin *> pins__;
-    bool isLeft__;
+    //CableStore &cablesStore__;
+    std::map<int/*numInCable__*/,std::shared_ptr<Pin>> pins__;
+    int uniqId__;
     int level__;
+    bool isLeft__;
 
 
 public:
-    static int getAbsPinLevel(CableStore &cablesStore_, Pin *pin_);
+    static void addNewPin(MutableCableStore& cablesStore_, std::shared_ptr<Cable> cable_);
 
-    Cable(CableStore &cablesStore_, bool isLeft);
-    ~Cable();
+    Cable(int uniqId_, int level_, bool isLeft);
     bool isLeft() const {return isLeft__;}
-    void addPin();
     int getCableLvl(){return level__;}
-    std::map<int/*numInCable__*/,Pin *> getPins()const{return pins__;}
+    std::map<int/*numInCable__*/,std::shared_ptr<Pin>> const &getPins(){return pins__;}
     friend std::ostream & operator <<(std::ostream &o, const Cable&);
 };
 

@@ -2,68 +2,40 @@
 
 
 
-PinConnection::PinConnection(PinConnectionsStore &pinConnectionsStore_):
-    pinConnectionsStore__(pinConnectionsStore_),
-    connId__(pinConnectionsStore_.getConnections().size()){
-    //color__=QColor(r,g,b);
-    /*std::vector<QColor> colors;
-    colors.push_back(QColorConstants::Black);
-    colors.push_back(QColorConstants::Svg::deeppink);
-    colors.push_back(QColorConstants::Svg::lightpink);
-    colors.push_back(QColorConstants::Svg::olive);
-    colors.push_back(QColorConstants::Magenta);
-    colors.push_back(QColorConstants::Gray);
-    colors.push_back(QColorConstants::Green);
-    colors.push_back(QColorConstants::Svg::maroon);
-    colors.push_back(QColorConstants::Svg::paleturquoise);
-    colors.push_back(QColorConstants::Svg::lightblue);
-    colors.push_back(QColorConstants::Svg::purple);
-    colors.push_back(QColorConstants::Svg::mediumaquamarine);
-    color__=colors[connId__];*/
+PinConnection::PinConnection(PinConnectionsStore &store_, int connId_):pinConnectionsStore__(store_),connId__(connId_){
+
 }
 
 
+void PinConnection::addOnePin(MutablePinConnectionsStore & connsStore_, std::shared_ptr<PinConnection> conn_){
+    std::shared_ptr<Pin> pin=nullptr;
+    auto &map=((PinConnectionsStore&)connsStore_).getPins();
+    std::vector<std::shared_ptr<Pin>> mapCopy;
+    mapCopy.reserve(map.size());
 
-
-void PinConnection::addOnePin(){
-    Pin* pin=nullptr;
-    do
-        pin=pinConnectionsStore__.getPin(Randomizer::getRandom(0,pinConnectionsStore__.getTotalPinsCount()-1));
-    while(pinConnectionsStore__.getPinsConnected().find(pin)!=pinConnectionsStore__.getPinsConnected().end());
-
-    pinConnectionsStore__.getPinsConnected()[pin]=this;
-    pins__.insert(pin);
-    (pin->isLeft()?leftPins__:rightPins__).insert(pin);
-
-    int absPinLevel=pinConnectionsStore__.getAbsPinLevel(pin);
-    auto &occupiedLevels=pinConnectionsStore__.getOccpuiedLevels(pin->isLeft());
-    occupiedLevels[absPinLevel]=this;
-}
-PinConnection::~PinConnection(){
-    for(int side=0;side<2;++side){
-        std::set<int /*pinLevel*/> levelsToRemove;
-        for(auto occPin:pinConnectionsStore__.getOccpuiedLevels(side))
-            if(this==occPin.second)
-                levelsToRemove.insert(occPin.first);
-        for(auto occPin:levelsToRemove)
-            pinConnectionsStore__.getOccpuiedLevels(side).erase(occPin);
-    }
-    pins__.clear();
-    leftPins__.clear();
-    rightPins__.clear();
-    pinConnectionsStore__.getConnections().erase(connId__);
+    std::transform(map.begin(),map.end(),
+                   std::back_inserter(mapCopy),[]( const std::pair<int,std::shared_ptr<Pin>>&x){return x.second;});
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::shuffle(mapCopy.begin(),mapCopy.end(),generator);
+    for(auto crntpin:mapCopy)
+        if(connsStore_.getPinsConnected().find(crntpin)==connsStore_.getPinsConnected().end()){
+            pin=crntpin;
+            break;
+        }
+    if(pin==nullptr)
+        return;
+    conn_->pins__.insert(pin);
+    (pin->isLeft()?conn_->leftPins__:conn_->rightPins__).insert(pin);
+    connsStore_.createAssociation(pin,conn_);
 }
 
-
-std::set<Pin *>& PinConnection::getPins(){return pins__;}
-PinConnection* PinConnection::genNextConnection(PinConnectionsStore& pinConnectionsStore_, int pinsCount_)
+std::set<std::shared_ptr<Pin>>& PinConnection::getPins(){return pins__;}
+void PinConnection::genNextConnection(MutablePinConnectionsStore& pinConnectionsStore_, std::shared_ptr<PinConnection> conn_, int pinsCount_)
 {
-    pinsCount_=Randomizer::getRandom(2,pinsCount_);
-    PinConnection* conn=new PinConnection(pinConnectionsStore_);
-    pinConnectionsStore_.getConnections().insert(std::make_pair(conn->connId__,conn));
+    pinsCount_=Randomizer::getRandom(2,pinsCount_);        
     for(int i=0;i<pinsCount_;++i)
-        conn->addOnePin();
-    return conn;
+        PinConnection::addOnePin(pinConnectionsStore_,conn_);
 }
 
 std::ostream& operator<<(std::ostream & o_, const PinConnection& conn_){
@@ -74,22 +46,21 @@ std::ostream& operator<<(std::ostream & o_, const PinConnection& conn_){
     for(int side=0;side<2;++side){
         o_<<"\t"<<(side?"l":"r")<<"{";
         for(auto lvl:conn_.pinConnectionsStore__.getOccpuiedLevels(side))
-            if(lvl.second==&conn_)
+            if(&(*lvl.second)==&conn_)
                 o_<<lvl.first<<" ";
         o_<<"}";
     }
     return o_;
 }
 int PinConnection::getConnId()const { return connId__;}
-//QColor PinConnection::getColor() const{return color__;}
-Pin* PinConnection::getLowest(const std::set<Pin *> &pins_){
-    Pin *lowestPin=pins_.empty()?nullptr:*pins_.begin();
+std::shared_ptr<Pin> PinConnection::getLowest(const std::set<std::shared_ptr<Pin> > &pins_){
+    std::shared_ptr<Pin>lowestPin=pins_.empty()?nullptr:*pins_.begin();
     for(auto crntPin:pins_)
         if(pinConnectionsStore__.getAbsPinLevel(crntPin)> pinConnectionsStore__.getAbsPinLevel(lowestPin))
                 lowestPin=crntPin;
     return lowestPin;
 }
-Pin* PinConnection::getHighest(const std::set<Pin*> &pins_){
+std::shared_ptr<Pin> PinConnection::getHighest(const std::set<std::shared_ptr<Pin>> &pins_){
     auto highestPin=pins_.empty()?nullptr:*pins_.begin();
     for(auto crntPin:pins_)        
         if(pinConnectionsStore__.getAbsPinLevel(crntPin)< pinConnectionsStore__.getAbsPinLevel(highestPin))
@@ -97,9 +68,9 @@ Pin* PinConnection::getHighest(const std::set<Pin*> &pins_){
     return highestPin;
 }
 
-Pin* PinConnection::getLowest(bool isLeft_){return getLowest(isLeft_? leftPins__:rightPins__);}
-Pin* PinConnection::getLowest(){return getLowest(pins__);}
-Pin* PinConnection::getHighest(bool isLeft_){return getHighest(isLeft_? leftPins__:rightPins__);}
-Pin* PinConnection::getHighest(){return getHighest(pins__);}
-std::set<Pin *>& PinConnection::getPins(bool isLeft){return isLeft?leftPins__:rightPins__;}
+std::shared_ptr<Pin> PinConnection::getLowest(bool isLeft_){return getLowest(isLeft_? leftPins__:rightPins__);}
+std::shared_ptr<Pin> PinConnection::getLowest(){return getLowest(pins__);}
+std::shared_ptr<Pin> PinConnection::getHighest(bool isLeft_){return getHighest(isLeft_? leftPins__:rightPins__);}
+std::shared_ptr<Pin> PinConnection::getHighest(){return getHighest(pins__);}
+std::set<std::shared_ptr<Pin> > &PinConnection::getPins(bool isLeft){return isLeft?leftPins__:rightPins__;}
 

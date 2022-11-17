@@ -6,40 +6,45 @@
 
 class PinConnection;
 class PinConnectionsStore : public CableStore{
+public:        
+    virtual std::map<int /*absPinLevel*/,std::shared_ptr<PinConnection>> const & getOccpuiedLevels(bool isLeft_) const =0;
+    virtual std::map<int /*connId*/,std::shared_ptr<PinConnection>> const & getConnections() const =0;
+    virtual int getAbsPinLevel(std::shared_ptr<Pin>) const=0;
+    virtual std::map<std::shared_ptr<Pin>, std::shared_ptr<PinConnection>>const & getPinsConnected() const=0;
+};
+class MutablePinConnectionsStore:public PinConnectionsStore, virtual public MutableCableStore{
 public:
-    virtual ~PinConnectionsStore(){}
-    virtual std::map<int /*pinLevel*/,PinConnection*>& getOccpuiedLevels(bool isLeft_)=0;
-    virtual std::map<int /*connId*/,PinConnection*>& getConnections()=0;
-    virtual std::map<Pin*, PinConnection*>& getPinsConnected()=0;
+    virtual void createAssociation(std::shared_ptr<Pin>,std::shared_ptr<PinConnection>)=0;
 };
 
 class PinConnection{
 
     public :
-    std::set<Pin *>& getPins();
-    static PinConnection* genNextConnection(PinConnectionsStore &pinConnectionsStore_, int pinsCount_);
+    std::set<std::shared_ptr<Pin>>& getPins();
+    static void genNextConnection(MutablePinConnectionsStore &pinConnectionsStore_,std::shared_ptr<PinConnection> conn_, int pinsCount_);
     int getConnId()const;
     //QColor getColor() const;
-    Pin* getLowest(const std::set<Pin*>&pins_);
-    Pin* getHighest(const std::set<Pin *> &pins_);
+    std::shared_ptr<Pin> getLowest(const std::set<std::shared_ptr<Pin>>&pins_);
+    std::shared_ptr<Pin> getHighest(const std::set<std::shared_ptr<Pin>> &pins_);
 
-    Pin* getLowest(bool isLeft_);
-    Pin* getLowest();
-    Pin* getHighest(bool isLeft_);
-    Pin* getHighest();
-    std::set<Pin *>& getPins(bool isLeft);
+    std::shared_ptr<Pin> getLowest(bool isLeft_);
+    std::shared_ptr<Pin> getLowest();
+    std::shared_ptr<Pin> getHighest(bool isLeft_);
+    std::shared_ptr<Pin> getHighest();
+    std::set<std::shared_ptr<Pin>>& getPins(bool isLeft);
     friend std::ostream& operator<<(std::ostream & o_, const PinConnection& conn_);
-    ~PinConnection();
+    PinConnection(PinConnectionsStore &store_, int connId_);
+
 private:
 
-    PinConnectionsStore& pinConnectionsStore__;
-    std::set<Pin *> pins__;
-    std::set<Pin *>leftPins__,rightPins__;
+    const PinConnectionsStore& pinConnectionsStore__;
+    std::set<std::shared_ptr<Pin>> pins__;
+    std::set<std::shared_ptr<Pin>>leftPins__,rightPins__;
+    std::shared_ptr<Pin> lowestLeft__,highestLeft__,lowestRight__, highestRight__;
     int connId__;
     QColor color__;
-    void addOnePin();
+    static void addOnePin(MutablePinConnectionsStore &connsStore_, std::shared_ptr<PinConnection> conn_);
 
-    PinConnection(PinConnectionsStore& pinConnectionsStore_);
 
     bool operator<(const PinConnection&r_){return pins__<r_.pins__;  }
     bool operator==(const PinConnection&r_){return pins__==r_.pins__;}

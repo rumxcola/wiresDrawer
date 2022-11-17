@@ -26,13 +26,13 @@ void GraphPanel::paintEvent(QPaintEvent *event){
 }
 
 
-void GraphPanel::drawCable(const Cable *cable_){
+void GraphPanel::drawCable(std::shared_ptr<Cable> cable_){
     for(auto it:cable_->getPins())
         drawPin(it.second);
 }
 
 
-void GraphPanel::drawPin(Pin *pin_){
+void GraphPanel::drawPin(std::shared_ptr<Pin> pin_){
     QPainter painter(this);
     auto pinPoint=session__->getPinPoint(pin_);
     QRect rect(pinPoint.x(),pinPoint.y(),session__->getPinWidh(),session__->getPinHeight());
@@ -40,7 +40,7 @@ void GraphPanel::drawPin(Pin *pin_){
     painter.fillRect(rect,brush);
     painter.drawRect(rect);
 }
-void GraphPanel::setPainter(QPainter& painter_, PinConnection *conn_){
+void GraphPanel::setPainter(QPainter& painter_, std::shared_ptr<PinConnection> conn_){
     QBrush brush(session__->getColor(conn_));
     QPen pen(session__->getColor(conn_),3);
     painter_.setPen(pen);
@@ -48,7 +48,7 @@ void GraphPanel::setPainter(QPainter& painter_, PinConnection *conn_){
     return;
 }
 
-void GraphPanel::drawOutgrowth(QPainter &painter_, PinConnection *conn_, bool isLeft_){
+void GraphPanel::drawOutgrowth(QPainter &painter_, std::shared_ptr<PinConnection>conn_, bool isLeft_){
     for(auto pin:conn_->getPins(isLeft_)){
         QPoint pinPoint=session__->getPinMiddlePoint(pin);
         QPoint busPoint(session__->getBusX(conn_,isLeft_),pinPoint.y());
@@ -56,10 +56,10 @@ void GraphPanel::drawOutgrowth(QPainter &painter_, PinConnection *conn_, bool is
         painter_.drawLine(line);
     }
 }
-void GraphPanel::drawOneSidePinsBus(QPainter &painter_, PinConnection *conn_, bool isLeft_){
+void GraphPanel::drawOneSidePinsBus(QPainter &painter_, std::shared_ptr<PinConnection> conn_, bool isLeft_){
     int busX=session__->getBusX(conn_, isLeft_);
-    Pin *lowest=conn_->getLowest(isLeft_);
-    Pin *highest=conn_->getHighest(isLeft_);
+    std::shared_ptr<Pin>lowest=conn_->getLowest(isLeft_);
+    std::shared_ptr<Pin>highest=conn_->getHighest(isLeft_);
     if(!lowest || !highest)
         return;
     QLine leftBus(busX,session__->getPinMiddlePoint(lowest).y(),busX,session__->getPinMiddlePoint(highest).y());
@@ -68,7 +68,7 @@ void GraphPanel::drawOneSidePinsBus(QPainter &painter_, PinConnection *conn_, bo
 
 
 
-int GraphPanel::findVacantLevel(PinConnection *conn_, std::set<int>& occupied_){
+int GraphPanel::findVacantLevel(std::shared_ptr<PinConnection> conn_, std::set<int>& occupied_){
     int lvl;
     bool IS_LEFT=true;
     auto highest=conn_->getHighest(IS_LEFT);
@@ -83,7 +83,7 @@ int GraphPanel::findVacantLevel(PinConnection *conn_, std::set<int>& occupied_){
     }
     return lvl;
 }
-void GraphPanel::drawDetour(QPainter &painter_, PinConnection *conn_, std::set<int> &occupied_){
+void GraphPanel::drawDetour(QPainter &painter_, std::shared_ptr<PinConnection> conn_, std::set<int> &occupied_){
     bool IS_LEFT=true;
     if(conn_->getPins(IS_LEFT).empty() || conn_->getPins(!IS_LEFT).empty())
             return;
@@ -100,7 +100,7 @@ void GraphPanel::drawDetour(QPainter &painter_, PinConnection *conn_, std::set<i
     painter_.drawLine(rightVLine);
     painter_.drawLine(line);
 }
-void GraphPanel::drawConnection(PinConnection *conn_, std::set<int>& ocupied_){
+void GraphPanel::drawConnection(std::shared_ptr<PinConnection> conn_, std::set<int>& ocupied_){
     QPainter painter(this);
     setPainter(painter,conn_);
     for(int side=0;side<2;++side){

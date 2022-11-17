@@ -25,15 +25,15 @@ private:
     bool drawConn__=false;
     void paintEvent(QPaintEvent *event);
     void reinit(int cables_, int oneCablePinsMax_, double connectedPercents_);
-    int findVacantLevel(PinConnection *conn_, std::set<int> &occupied_);
-    void drawCable(const Cable *cable_);
-    void drawPin(Pin *pin_);
-    void drawConnection(PinConnection *conn_, std::set<int> &ocupied_);
-    void drawDetour(QPainter &painter_, PinConnection *conn_, std::set<int> &occupied_);
-    void drawOutgrowth(QPainter &painter_, PinConnection *conn_, bool isLeft_);
-    void drawOneSidePinsBus(QPainter &painter_, PinConnection *conn_, bool isLeft_);
-    void setPainter(QPainter &painter_, PinConnection *conn_);
-    bool drawSidesLink(QPainter &painter_, PinConnection *conn_);
+    int findVacantLevel(std::shared_ptr<PinConnection>conn_, std::set<int> &occupied_);
+    void drawCable(std::shared_ptr<Cable> cable_);
+    void drawPin(std::shared_ptr<Pin> pin_);
+    void drawConnection(std::shared_ptr<PinConnection> conn_, std::set<int> &ocupied_);
+    void drawDetour(QPainter &painter_, std::shared_ptr<PinConnection>conn_, std::set<int> &occupied_);
+    void drawOutgrowth(QPainter &painter_, std::shared_ptr<PinConnection>conn_, bool isLeft_);
+    void drawOneSidePinsBus(QPainter &painter_, std::shared_ptr<PinConnection>conn_, bool isLeft_);
+    void setPainter(QPainter &painter_, std::shared_ptr<PinConnection> conn_);
+    bool drawSidesLink(QPainter &painter_, std::shared_ptr<PinConnection>conn_);
 
 };
 
